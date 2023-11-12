@@ -18,6 +18,19 @@ import android.content.Context
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import java.io.FileInputStream
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+
+import android.renderscript.Allocation
+import android.renderscript.Element
+import android.renderscript.RenderScript
+import android.renderscript.ScriptIntrinsicBlur
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
 
 class MainActivity : ComponentActivity() {
     private lateinit var tfliteTester: TFLiteTester
@@ -34,12 +47,45 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TFLiteTestScreen(tfliteTester: TFLiteTester) {
     var resultText by remember { mutableStateOf("") }
+    var imageBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    // 画像を初期化します
+    LaunchedEffect(Unit) {
+        imageBitmap = tfliteTester.loadImageFromAssets("download.jpg")
+    }
 
     Column(modifier = Modifier.padding(16.dp)) {
         Text(text = resultText)
+        imageBitmap?.let { bitmap ->
+            Image(bitmap = bitmap.asImageBitmap(), contentDescription = null)
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Button(onClick = { testInference(tfliteTester) { resultText = it } }) {
             Text("Test Inference")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = { testGaussianBlur(tfliteTester, imageBitmap) { blurredImage, blurTime ->
+            imageBitmap = blurredImage
+            resultText = "Gaussian Blur Applied in $blurTime ms"
+        }}) {
+            Text("Test Gaussian Blur")
+        }
+    }
+}
+
+private fun testGaussianBlur(
+    tfliteTester: TFLiteTester,
+    bitmap: Bitmap?,
+    updateResult: (Bitmap, Long) -> Unit
+) {
+    bitmap?.let { originalBitmap ->
+        CoroutineScope(Dispatchers.IO).launch {
+            val startTime = System.currentTimeMillis()
+            val blurredBitmap = tfliteTester.applyGaussianBlur(originalBitmap)
+            val endTime = System.currentTimeMillis()
+            withContext(Dispatchers.Main) {
+                updateResult(blurredBitmap, endTime - startTime)
+            }
         }
     }
 }
@@ -82,6 +128,7 @@ private fun FloatArray.indexOfMax(): Int =
 
 class TFLiteTester(private val context: Context) {
     private var interpreter: Interpreter? = null
+    private val renderScript = RenderScript.create(context)
 
     init {
         interpreter = try {
@@ -90,6 +137,22 @@ class TFLiteTester(private val context: Context) {
             e.printStackTrace()
             null
         }
+    }
+
+    fun applyGaussianBlur(bitmap: Bitmap): Bitmap {
+        val input = Allocation.createFromBitmap(renderScript, bitmap)
+        val output = Allocation.createTyped(renderScript, input.type)
+        ScriptIntrinsicBlur.create(renderScript, Element.U8_4(renderScript)).apply {
+            setRadius(10f)
+            setInput(input)
+            forEach(output)
+            destroy() // スクリプトのリソースを解放
+        }
+        val blurredBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, bitmap.config)
+        output.copyTo(blurredBitmap)
+        input.destroy()  // 入力Allocationのリソースを解放
+        output.destroy() // 出力Allocationのリソースを解放
+        return blurredBitmap
     }
 
     fun testModel(inputData: ByteBuffer, callback: (averageRunTime: Long, probabilities: FloatArray) -> Unit) {
@@ -149,5 +212,3 @@ class TFLiteTester(private val context: Context) {
         const val BITMAP_SIZE = 128  // 128x128の画像サイズに設定
     }
 }
-
-
