@@ -1,26 +1,4 @@
 
-
-14
-CLIP:Contrastive Language–Image Pretraining  画像と語彙のペアを同じ特徴量空間に埋め込むやつ
-Foundation: 基盤モデル　巨大なデータセットで事前学習されていていろいろなタスクができるモデル
-https://research-p.com/column/1468
-nerfないっすね...
-
-15
-Scene Graph: ブジェクト（物体）、それらの属性、およびオブジェクト間の関係をグラフの形式で表現する形式。意味論的な階層構造をもつのでロボとかで使われがち
-
-16
-diffusion model:
-
-
-
-低レベルビジョン（Low-Level Vision）：
-画像の基本的な特性や構造を分析する分野
-画像のエッジ検出、テクスチャ分析、色彩の調整、ノイズ、シャープネスなどの観点から画像を見る。
-物理ベースのビジョン（Physics-based Vision）：
-光の反射や屈折など物理を使って現象をモデリングして画像解析に活かすっぽい（よくわからない）
-
-
 Best Paper
 ### Adding Conditional Control to Text-to-Image Diffusion Models
 https://arxiv.org/abs/2302.05543 meta
